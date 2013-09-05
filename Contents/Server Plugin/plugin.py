@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 ####################
 # Copyright (c) 2013, Kieran J. Broadfoot. All rights reserved.
+# http://www.l1fe.co.uk
 #
 
 ################################################################################
@@ -95,7 +96,8 @@ class Plugin(indigo.PluginBase):
 									else:
 										state = True
 										level = self.valueToIndigo(m.group(3))
-								device.updateStateOnServer(key='brightnessLevel', value=level)
+								if device.deviceTypeId == "cbusDimmer":
+									device.updateStateOnServer(key='brightnessLevel', value=level)
 								device.updateStateOnServer(key='onOffState', value=state)
 						except:
 							pass
