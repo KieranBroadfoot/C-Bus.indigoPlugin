@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<PluginConfig>
+	<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
+		<Label>Please provide the network location for your C-Gate install. Typically this would be 127.0.0.1. You may also specify a network number for your C-Bus project. I default to 254 which should work for the majority of cases. This plugin also presumes you have updated your C-GateConfig.txt file to set the project.default and project.start options with the name of your C-Bus project.</Label>
+	</Field>
+	<Field id="cgateNetworkLocation" type="textfield" defaultValue="127.0.0.1">
+		<Label>C-Gate Location:</Label>
+	</Field>
+	<Field id="cbusNetwork" type="textfield" defaultValue="254">
+		<Label>C-Bus Network:</Label>
+	</Field>
+</PluginConfig>
