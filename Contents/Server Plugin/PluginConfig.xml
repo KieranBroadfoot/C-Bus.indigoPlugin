@@ -1,12 +1,19 @@
 <?xml version="1.0"?>
 <PluginConfig>
 	<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
-		<Label>Please provide the network location for your C-Gate install. Typically this would be 127.0.0.1. You may also specify a network number for your C-Bus project. I default to 254 which should work for the majority of cases. This plugin also presumes you have updated your C-GateConfig.txt file to set the project.default and project.start options with the name of your C-Bus project.</Label>
+		<Label>Please provide the network location for your C-Gate install. Typically this would be 127.0.0.1. You may also specify a network number for your C-Bus project. The default of 254 should work for the majority of cases. This plugin also presumes you have updated your C-GateConfig.txt file to set the project.default and project.start options with the name of your C-Bus project.</Label>
 	</Field>
 	<Field id="cgateNetworkLocation" type="textfield" defaultValue="127.0.0.1">
 		<Label>C-Gate Location:</Label>
 	</Field>
 	<Field id="cbusNetwork" type="textfield" defaultValue="254">
 		<Label>C-Bus Network:</Label>
+	</Field>
+	<Field id="securitySeparator" type="separator"/>
+	<Field id="securityLabel" type="label" fontSize="small" fontColor="darkgray">
+		<Label>Add the following option if you have a C-Bus enabled alarm panel which supports application 208. Comfort/MinderPro for example has this support. In it's current guise this plugin only supports read-only views of the panel (both as device states and events). As a pre-requisite use the C-Bus Toolkit to add application 208 to your project and create a group for each zone supported by your panel. The plugin will automatically create the panel and zones in Indigo.</Label>
+	</Field>
+	<Field id="cbusSecurityEnabled" type="checkbox" defaultValue="false">
+		<Label>Support C-Bus Enabled Alarm:</Label>
 	</Field>
 </PluginConfig>

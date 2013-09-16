@@ -1,0 +1,129 @@
+<?xml version="1.0"?>
+<Events>
+	<Event id="away" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Away</Name>
+	</Event>
+	<Event id="day" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Day</Name>
+	</Event>
+	<Event id="night" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Night</Name>
+	</Event>
+	<Event id="armReady" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Ready To Arm</Name>
+	</Event>
+	<Event id="armed" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Armed</Name>
+	</Event>
+	<Event id="disarmed" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Status is Disarmed</Name>
+	</Event>
+	<Event id="exitDelay" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel has started an Exit Delay</Name>
+	</Event>
+	<Event id="entryDelay" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel has started an Entry Delay</Name>
+	</Event>
+	<Event id="alarmActivated" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Alarm!</Name>
+	</Event>
+	<Event id="alarmIntruder" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Intruder Alarm!</Name>
+	</Event>
+	<Event id="alarmLineCut" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Line Cut Alarm!</Name>
+	</Event>
+	<Event id="alarmFailed" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>An Arming action has Failed</Name>
+	</Event>
+	<Event id="alarmFire" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Fire Alarm!</Name>
+	</Event>
+	<Event id="alarmGas" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Gas Alarm!</Name>
+	</Event>
+	<Event id="alarmCleared" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Alarm Cleared</Name>
+	</Event>
+	<Event id="alarmTamperActivated" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Tamper Alarm!</Name>
+	</Event>
+	<Event id="alarmPanicCleared" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Tamper Alarm Cleared</Name>
+	</Event>
+	<Event id="panicActivated" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panic Alarm Activated</Name>
+	</Event>
+	<Event id="panicCleared" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panic Alarm Cleared</Name>
+	</Event>
+	<Event id="batteryOK" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Battery OK</Name>
+	</Event>
+	<Event id="charging" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Battery Charging</Name>
+	</Event>
+	<Event id="low" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Battery Low Charge</Name>
+	</Event>
+	<Event id="mainsOK" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Mains OK</Name>
+	</Event>
+	<Event id="failure" deviceFilter="self.cbusSecurityAlarmPanel">
+		<Name>Panel Mains Failed</Name>
+	</Event>	
+    <Event id="triggered" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Triggered</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>  
+    <Event id="monitoring" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Monitoring</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>
+    <Event id="open" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Open</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>
+    <Event id="short" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Shorted</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>
+    <Event id="isolated" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Isolated</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>
+    <Event id="notReady" deviceFilter="self.cbusSecurityZone">
+        <Name>Zone Not Ready for Arm</Name>
+		<ConfigUI>
+			<Field id="device" type="menu">
+				<Label>Zone:</Label>
+				<List class="indigo.devices" filter="self.cbusSecurityZone"/> 
+			</Field>
+		</ConfigUI>
+    </Event>
+</Events>

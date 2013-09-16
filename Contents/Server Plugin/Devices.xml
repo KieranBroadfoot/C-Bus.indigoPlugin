@@ -13,4 +13,88 @@
 	<Device type="dimmer" id="cbusDimmer">
 		<Name>C-Bus Dimmer Channel</Name>
 	</Device>
+	
+	<Device type="custom" id="cbusSecurityAlarmPanel">
+		<Name>C-Bus Enabled Alarm Panel</Name>
+		<UiDisplayStateId>state</UiDisplayStateId>
+		<States>
+			<State id="state">
+				<ValueType>
+					<List>
+						<Option value="away">Armed (Away)</Option>
+						<Option value="day">Armed (Day)</Option>
+						<Option value="night">Armed (Night)</Option>						
+						<Option value="armReady">Ready to Arm</Option>
+						<Option value="armed">Armed</Option>
+						<Option value="disarmed">Disarmed</Option>
+						<Option value="exitDelay">Exit Delay Started</Option>
+						<Option value="entryDelay">Entry Delay Started</Option>
+						<Option value="alarmActivated">Alarm!</Option>
+						<Option value="alarmIntruder">Intruder Alarm!</Option>
+						<Option value="alarmLineCut">Line Cut Alarm!</Option>
+						<Option value="alarmFailed">Arm Failed!</Option>
+						<Option value="alarmFire">Fire Alarm!</Option>
+						<Option value="alarmGas">Gas Alarm!</Option>
+						<Option value="alarmCleared">Alarm Cleared</Option>
+						<Option value="alarmTamperActivated">Tamper Alarm!</Option>
+						<Option value="alarmTamperCleared">Tamper Cleared</Option>
+						<Option value="panicActivated">Panic Activated</Option>
+						<Option value="panicCleared">Panic Cleared</Option>
+					</List>
+				</ValueType>
+				<TriggerLabel>Alarm Panel State Changed</TriggerLabel>
+				<TriggerLabelPrefix>Alarm Panel State Changed to</TriggerLabelPrefix>
+				<ControlPageLabel>Current State</ControlPageLabel>
+				<ControlPageLabelPrefix>State is</ControlPageLabelPrefix>
+			</State>
+			<State id="batteryState">
+				<ValueType>
+					<List>
+						<Option value="batteryOK">OK</Option>
+						<Option value="charging">Charging</Option>
+						<Option value="low">Low Battery</Option>						
+					</List>
+				</ValueType>
+				<TriggerLabel>Alarm Panel Battery State Changed</TriggerLabel>
+				<TriggerLabelPrefix>Alarm Panel Battery State Changed to</TriggerLabelPrefix>
+				<ControlPageLabel>Current Battery State</ControlPageLabel>
+				<ControlPageLabelPrefix>Battery State is</ControlPageLabelPrefix>
+			</State>
+			<State id="mainsState">
+				<ValueType>
+					<List>
+						<Option value="mainsOK">OK</Option>
+						<Option value="failure">Mains Failed</Option>						
+					</List>
+				</ValueType>
+				<TriggerLabel>Alarm Panel Mains State Changed</TriggerLabel>
+				<TriggerLabelPrefix>Alarm Panel Mains State Changed to</TriggerLabelPrefix>
+				<ControlPageLabel>Current Mains State</ControlPageLabel>
+				<ControlPageLabelPrefix>Mains State is</ControlPageLabelPrefix>
+			</State>
+		</States>
+	</Device>
+	
+	<Device type="custom" id="cbusSecurityZone">
+		<Name>C-Bus Enabled Alarm Zone</Name>
+		<UiDisplayStateId>state</UiDisplayStateId>
+		<States>
+			<State id="state">
+				<ValueType>
+					<List>
+						<Option value="triggered">Triggered</Option>
+						<Option value="monitoring">Monitoring</Option>
+						<Option value="open">Open</Option>
+						<Option value="short">Short</Option>
+						<Option value="isolated">Isolated</Option>
+						<Option value="notReady">Not Ready for Arm</Option>
+					</List>
+				</ValueType>
+				<TriggerLabel>Zone State Changed</TriggerLabel>
+				<TriggerLabelPrefix>Zone State Changed to</TriggerLabelPrefix>
+				<ControlPageLabel>Current State</ControlPageLabel>
+				<ControlPageLabelPrefix>State is</ControlPageLabelPrefix>
+			</State>
+		</States>
+	</Device>
 </Devices>

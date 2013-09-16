@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>PluginVersion</key>
-	<string>0.0.1</string>
+	<string>0.0.2</string>
 	<key>ServerApiVersion</key>
 	<string>1.5</string>
 	<key>IwsApiVersion</key>
@@ -13,12 +13,12 @@
 	<key>CFBundleIdentifier</key>
 	<string>uk.co.l1fe.indigoplugin.C-Bus</string>
 	<key>CFBundleVersion</key>
-	<string>0.0.1</string>
+	<string>0.0.2</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>http://www2.clipsal.com/cis/technical/</string>
+			<string>https://github.com/KieranBroadfoot/C-Bus.indigoPlugin</string>
 		</dict>
 	</array>
 </dict>
