@@ -143,10 +143,13 @@ class Plugin(indigo.PluginBase):
 						# now we want to split on space and concat 0 and 1. look up in the dispatch table
 						action = line.split()
 						if not action[0] and not action[1]:
-							cotinue
-						lookup = action[0]+"_"+action[1]
-						if lookup in self.dispatchTable:
-							self.dispatchTable[lookup](action[2:])
+							continue
+						try:
+							lookup = action[0]+"_"+action[1]
+							if lookup in self.dispatchTable:
+								self.dispatchTable[lookup](action[2:])
+						except IndexError:
+							indigo.server.log(u"index error: %s" % (line), isError=True)
 				
 		except self.StopThread:
 			pass
@@ -179,9 +182,12 @@ class Plugin(indigo.PluginBase):
 			# if the device is a zone then iterate all triggers and find associated type based on device.address	
 			if state in self.events:
 				for trigger in self.events[state]:
-					if device.deviceTypeId == "cbusSecurityZone" and self.events[state][trigger].pluginProps['device'] == device.id:
-						indigo.trigger.execute(trigger)
+					if device.deviceTypeId == "cbusSecurityZone":
+						# check for match against specific triggers with referenced zones
+						if str(device.id) == str(self.events[state][trigger].pluginProps['device']):
+							indigo.trigger.execute(trigger)
 					else:
+						# must be an alarm panel trigger
 						indigo.trigger.execute(trigger)	
 			
 	def findDevice(self, address):
