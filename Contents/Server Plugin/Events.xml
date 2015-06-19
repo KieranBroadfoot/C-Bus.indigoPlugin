@@ -1,5 +1,22 @@
 <?xml version="1.0"?>
 <Events>
+	<Event id="groupManuallyChanged">
+		<Name>Group Manually Changed</Name>
+		<ConfigUI>
+			<Field id="group" type="menu">
+				<Label>Group:</Label>
+				<List class="self" filter="stuff" method="cbusGroupList"/>
+			</Field>
+			<Field id="changeType" type="menu">
+				<Label>Change:</Label>
+				<List>
+					<Option value="any">Any</Option>
+					<Option value="on">On</Option>
+					<Option value="off">Off</Option>
+				</List>
+			</Field>
+		</ConfigUI>
+	</Event>
 	<Event id="away" deviceFilter="self.cbusSecurityAlarmPanel">
 		<Name>Panel Status is Away</Name>
 	</Event>

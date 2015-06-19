@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!--
-	Devices
-	Created by Kieran Broadfoot on 2013-09-05.
-	Copyright (c) 2013. All rights reserved.
--->
 
 <Devices>
 	<Device type="relay" id="cbusRelay">

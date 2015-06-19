@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<Actions>
+    <Action id="updateDLTLabel"> 
+        <Name>Update a DLT Label</Name>
+        <CallbackMethod>updateDLTLabel</CallbackMethod>
+		<ConfigUI>
+			<Field id="cbusGroup" type="menu">
+				<Label>C-Bus Group:</Label>
+				<List class="self" filter="stuff" method="cbusGroupList"/>
+			</Field>
+			<Field id="dltLabel" type="textfield" defaultValue="Alarm On">
+				<Label>Label:</Label>
+			</Field>
+		</ConfigUI>
+    </Action>
+</Actions>

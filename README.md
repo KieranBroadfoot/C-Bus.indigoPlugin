@@ -11,10 +11,13 @@ This plugin supports simple operations for application 56:
 * lighting on
 * lighting off
 * lighting ramp
+* DLT labelling
 
-It does not (yet) support terminate ramp and DLT labelling.
+It does not support terminate ramp.
 
 The plugin dynamically generates devices for each lighting group and will attempt to determine if the group is associated to a dimmer or relay channel.  If it cannot guess (which means it cannot determine the unit type which is supporting the group) it will default to a dimmer channel.  
+
+A single "Group Manually Changed" trigger is available for application 56 which enables you to monitor for human initiated group changes from a switch (e.g. DLT).  You can monitor for on/off/any changes.
 
 Security
 --------

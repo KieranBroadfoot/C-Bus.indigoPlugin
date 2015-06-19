@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 ####################
-# Copyright (c) 2013, Kieran J. Broadfoot. All rights reserved.
-# http://www.l1fe.co.uk
+# Copyright (c) 2015, Kieran J. Broadfoot. All rights reserved.
+# http://kieranbroadfoot.com
 #
 
 import sys
@@ -21,6 +21,7 @@ class Plugin(indigo.PluginBase):
 		self.cgateLocation = pluginPrefs.get("cgateNetworkLocation", "127.0.0.1")
 		self.cbusNetwork = pluginPrefs.get("cbusNetwork", "254")
 		self.cbusSecurityEnabled = pluginPrefs.get("cbusSecurityEnabled", False)
+		self.cbusProjectName = ""
 		self.cbusLightingMap = {}
 		self.cbusSecurityMap = {}
 		self.cbusUnitMap = {}
@@ -138,9 +139,7 @@ class Plugin(indigo.PluginBase):
 					if line:
 						if line.startswith("# "):
 							line = line[2:]
-						# ignore everything after the #sourceunit
-						line = line.split("#")[0]
-						# now we want to split on space and concat 0 and 1. look up in the dispatch table
+						# split on space and concat 0 and 1. look up in the dispatch table
 						action = line.split()
 						if not action[0] and not action[1]:
 							continue
@@ -167,8 +166,23 @@ class Plugin(indigo.PluginBase):
 	def valueToIndigo(self, value):
 		return int(int(value) / 2.55)
 			
-	def updateIndigoLightingState(self, device, state, brightness):
+	def updateIndigoLightingState(self, device, state, brightness, source="self"):
 		if device:
+			if source is not "self":
+				source = source.split("=")[1]
+				if self.cbusUnitMap[source]['unit'] == "cbusSwitch":
+					if "groupManuallyChanged" in self.events:
+						for trigger in self.events["groupManuallyChanged"]:
+							if self.events["groupManuallyChanged"][trigger].pluginProps['group'] == device.address:
+								shouldTrigger = False
+								if self.events["groupManuallyChanged"][trigger].pluginProps['changeType'] == "any":
+									shouldTrigger = True
+								if self.events["groupManuallyChanged"][trigger].pluginProps['changeType'] == "on" and brightness == 255:
+									shouldTrigger = True
+								if self.events["groupManuallyChanged"][trigger].pluginProps['changeType'] == "off" and brightness == 0:
+									shouldTrigger = True
+								if shouldTrigger:
+									indigo.trigger.execute(trigger)
 			device.updateStateOnServer("onOffState", state)
 			if device.deviceTypeId == "cbusDimmer" and brightness:
 				device.updateStateOnServer("brightnessLevel", self.valueToIndigo(brightness))
@@ -284,15 +298,19 @@ class Plugin(indigo.PluginBase):
 		# Groups (so we can match them to correct unit type)
 		for line in StringIO.StringIO(treeStr):
 			line = line.rstrip()
-			m0 = re.match(".*p\/(\w+).*type\=(\w+).*groups\=(.*)", line)
+			m0 = re.match(".*(\/\/\w+)\/.*p\/(\w+).*type\=(\w+).*groups\=(.*)", line)
 			m1 = re.match(".*\/56\/(\w+).*level\=(\w+).*units\=(.*)", line)
 			if m0:
+				# Capture the name of the C-Bus project for later use when DLT Labelling
+				self.cbusProjectName = m0.group(1)
 				unitType = "unknown"
-				if re.match("DIM.*",m0.group(2)):
+				if re.match("DIM.*",m0.group(3)):
 					unitType = "cbusDimmer"
-				if re.match("REL.*",m0.group(2)):
+				if re.match("REL.*",m0.group(3)):
 					unitType = "cbusRelay"
-				self.cbusUnitMap[m0.group(1)] = { 'unit':unitType, 'groups': m0.group(3).split(',') }
+				if re.match("KEY.*",m0.group(3)):
+					unitType = "cbusSwitch"
+				self.cbusUnitMap[m0.group(2)] = { 'unit':unitType, 'groups': m0.group(4).split(',') }
 			elif m1:
 				if self.cbusNetwork+"/56/"+m1.group(1) in self.cbusLightingMap:
 					self.cbusLightingMap[self.cbusNetwork+"/56/"+m1.group(1)]['level'] = m1.group(2)
@@ -305,7 +323,8 @@ class Plugin(indigo.PluginBase):
 		# then create the device
 		for group in self.cbusLightingMap.keys():
 			for unit in self.cbusUnitMap:
-				if self.cbusUnitMap[unit]['unit'] == "unknown":
+				if self.cbusUnitMap[unit]['unit'] == "unknown" or self.cbusUnitMap[unit]['unit'] == "cbusSwitch":
+					# ignore devices in the c-bus network which have not been mapped or are switches.  We use switches for events in updateIndigoLightingState
 					continue
 				if self.cbusLightingMap[group]['unqualifiedAddress'] in self.cbusUnitMap[unit]['groups']:
 					# we need to account for all unit groups
@@ -388,13 +407,13 @@ class Plugin(indigo.PluginBase):
 	########################################
 
 	def lightingRamp(self, action):
-		self.updateIndigoLightingState(self.findDevice(action[0]), True, action[1])
+		self.updateIndigoLightingState(self.findDevice(action[0]), True, action[1], action[3])
 
 	def lightingOn(self, action):
-		self.updateIndigoLightingState(self.findDevice(action[0]), True, 255)
+		self.updateIndigoLightingState(self.findDevice(action[0]), True, 255, action[1])
 
 	def lightingOff(self, action):
-		self.updateIndigoLightingState(self.findDevice(action[0]), False, 0)
+		self.updateIndigoLightingState(self.findDevice(action[0]), False, 0, action[1])
 
 	def zoneUnsealed(self, action):
 		self.updateIndigoSecurityState(self.findDevice(action[0]), "state", "triggered")
@@ -573,3 +592,20 @@ class Plugin(indigo.PluginBase):
 			# Query hardware module (dev) for its current states here:
 			# ** IMPLEMENT ME **
 			indigo.server.log(u"sent \"%s\" %s" % (dev.name, "status request"))
+
+	def updateDLTLabel(self, action, dev):
+		if not action.props.get("cbusGroup",""):
+			indigo.server.log("DLT Label: No c-bus group provided.")
+		if not action.props.get("dltLabel",""):
+			indigo.server.log("DLT Label: No label provided.")
+		if len(action.props.get("dltLabel","")) > 9:
+			indigo.server.log("DLT Label: Label too long (recommended 9 chars or less).")
+		if action.props.get("cbusGroup","") and action.props.get("dltLabel","") and len(action.props.get("dltLabel","")) <= 9:
+			self.writeTo(self.connection, "lighting label "+self.cbusProjectName+"/"+self.cbusNetwork+"/56 1 "+ action.props.get("cbusGroup","").split("/")[2] +" - 0 "+action.props.get("dltLabel","").encode("hex")+"\r\n")
+
+	def cbusGroupList(self, filter="", valuesDict=None, typeId="", targetId=0):
+		# used by DLT labelling action.
+		groups = []
+		for group in self.cbusLightingMap.keys():
+			groups.append([group, self.cbusLightingMap[group]['name']])
+		return sorted(groups, key=lambda x: x[1])
