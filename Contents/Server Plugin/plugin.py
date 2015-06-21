@@ -11,13 +11,15 @@ import telnetlib
 import re
 import time
 from xml.dom.minidom import parseString
+from threading import Timer
 import StringIO
 
 class Plugin(indigo.PluginBase):
 
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs): 
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-		self.events = dict()
+		self.events = {}
+		self.currentTimers = {}
 		self.cgateLocation = pluginPrefs.get("cgateNetworkLocation", "127.0.0.1")
 		self.cbusNetwork = pluginPrefs.get("cbusNetwork", "254")
 		self.cbusSecurityEnabled = pluginPrefs.get("cbusSecurityEnabled", False)
@@ -406,8 +408,23 @@ class Plugin(indigo.PluginBase):
 	# MONITORING DISPATCH FUNCTIONS
 	########################################
 
+	def lightingRampTimerCallback(self, device, brightness, sourceunit):
+		del self.currentTimers[device]
+		self.updateIndigoLightingState(self.findDevice(device), True, brightness, sourceunit)
+
 	def lightingRamp(self, action):
-		self.updateIndigoLightingState(self.findDevice(action[0]), True, action[1], action[3])
+		# updated to account for ramping behaviour.  when a user initiates a ramp c-bus will send a timed ramp
+		# message of 0 or 255 over X seconds. If the user releases their finger then an immediate ramp to level
+		# message is sent.  We'll create a timer for the initial press and cancel if the user removes their finger
+		# before the timer completes.  If the timer completes then the user has ramped to 1 or 255 manually.
+		if int(action[2]) > 0:
+			self.currentTimers[action[0]] = Timer(int(action[2]), self.lightingRampTimerCallback, [action[0], action[1], action[3]])
+			self.currentTimers[action[0]].start()
+		else:
+			if action[0] in self.currentTimers:
+				self.currentTimers[action[0]].cancel()
+				del self.currentTimers[action[0]]
+			self.updateIndigoLightingState(self.findDevice(action[0]), True, action[1], action[3])
 
 	def lightingOn(self, action):
 		self.updateIndigoLightingState(self.findDevice(action[0]), True, 255, action[1])
