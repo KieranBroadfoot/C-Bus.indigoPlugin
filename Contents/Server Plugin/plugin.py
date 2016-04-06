@@ -16,7 +16,7 @@ import StringIO
 
 class Plugin(indigo.PluginBase):
 
-	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs): 
+	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
 		self.events = {}
 		self.currentTimers = {}
@@ -81,22 +81,22 @@ class Plugin(indigo.PluginBase):
 			"2": "night",
 			"3": "day"
 		}
-	
+
 	def __del__(self):
 		indigo.PluginBase.__del__(self)
-		
+
 	def startup(self):
 		indigo.server.log("starting c-bus plugin")
 		self.connection = telnetlib.Telnet(self.cgateLocation, 20023)
 		self.initConnection()
 		self.getReadyState()
-
+		
 		# refactor to pass application ID and type (e.g. 'lighting')
 		self.cbusLightingMap = self.generateGroupData('56','lighting')
 		
 		# find unit types in order to map lighiting groups to channel types
 		self.generateDeviceTypesPerGroup()
-
+		
 		# map channel types to groups
 		self.mapLightingDevices()
 		self.createLightingDevices()
@@ -112,7 +112,7 @@ class Plugin(indigo.PluginBase):
 		indigo.server.log("stopping c-bus plugin")
 		self.connection.close()
 		pass
-		
+
 	def triggerStartProcessing(self, trigger):
 		if trigger.pluginTypeId not in self.events:
 			self.events[trigger.pluginTypeId] = {trigger.id: trigger}
@@ -122,16 +122,16 @@ class Plugin(indigo.PluginBase):
 	def triggerStopProcessing(self, trigger):
 		if trigger.pluginTypeId in self.events and trigger.id in self.events[trigger.pluginTypeId]:
 			del self.events[trigger.pluginTypeId][trigger.id]
-		
+
 	########################################
 	# MONITORING
 	########################################
-	
+
 	def runConcurrentThread(self):
 		indigo.server.log("starting c-bus monitoring thread")
 		try:
 			self.monitor = telnetlib.Telnet(self.cgateLocation, 20025)
-			# we have a connection so if security is enabled let's request an initial status 
+			# we have a connection so if security is enabled let's request an initial status
 			if self.cbusSecurityEnabled:
 				self.requestSecurityStatus()
 			while True:
@@ -151,23 +151,23 @@ class Plugin(indigo.PluginBase):
 								self.dispatchTable[lookup](action[2:])
 						except IndexError:
 							indigo.server.log(u"index error: %s" % (line), isError=True)
-				
+		
 		except self.StopThread:
 			pass
-		
+
 	def stopConcurrentThread(self):
 		self.monitor.close()
-	
+
 	########################################
 	# COMMUNICATION (WITH INDIGO) FUNCTIONS
-	########################################		
-				
+	########################################
+
 	def valueFromIndigo(self, value):
 		return str(int(value * 2.55))
 
 	def valueToIndigo(self, value):
 		return int(int(value) / 2.55)
-			
+
 	def updateIndigoLightingState(self, device, state, brightness, source="self"):
 		if device:
 			if source is not "self":
@@ -195,7 +195,7 @@ class Plugin(indigo.PluginBase):
 			# we also want to execute triggers associated to this action.
 			# the "state" value is also the name of the trigger
 			# if the device is the panel then execute all triggers
-			# if the device is a zone then iterate all triggers and find associated type based on device.address	
+			# if the device is a zone then iterate all triggers and find associated type based on device.address
 			if state in self.events:
 				for trigger in self.events[state]:
 					if device.deviceTypeId == "cbusSecurityZone":
@@ -204,8 +204,8 @@ class Plugin(indigo.PluginBase):
 							indigo.trigger.execute(trigger)
 					else:
 						# must be an alarm panel trigger
-						indigo.trigger.execute(trigger)	
-			
+						indigo.trigger.execute(trigger)
+
 	def findDevice(self, address):
 		# remove //project name and lookup in indigo
 		m = re.match("\/\/\w+\/([\w|\/]+).*", address)
@@ -215,14 +215,14 @@ class Plugin(indigo.PluginBase):
 				if dev.address == address:
 					return indigo.devices[dev.name]
 		return None
-			
+
 	########################################
 	# COMMUNICATION (WITH C-BUS) FUNCTIONS
 	########################################
-	
+
 	def initConnection(self):
 		self.readUntil(self.connection, "201 Service ready:.*")
-	
+
 	def getReadyState(self):
 		ready = False
 		while ready != True:
@@ -234,8 +234,8 @@ class Plugin(indigo.PluginBase):
 				ready = True
 			else:
 				indigo.server.log("c-bus not yet ready. waiting 10 seconds for retry")
-				time.sleep(10)	
-				
+				time.sleep(10)
+
 	def requestSecurityStatus(self):
 		indigo.server.log("requesting initial security status")
 		# request 1 represents zones up to 32, 2 provides 33-80
@@ -251,8 +251,7 @@ class Plugin(indigo.PluginBase):
 
 	def writeTo(self, connection, str):
 		connection.write(str.encode('latin-1'))
-		
-	
+
 	def rampChannel(self, device, actionString, value):
 		self.writeTo(self.connection,"ramp "+self.cbusNetwork+"/56/"+device.pluginProps['unqualifiedAddress']+" "+value+" 0m\r\n")
 		result = self.readUntil(self.connection, "200 OK:.*")
@@ -265,28 +264,28 @@ class Plugin(indigo.PluginBase):
 			else:
 				self.updateIndigoLightingState(device, False, value)
 				device.updateStateOnServer("onOffState", False)
-				
+
 	########################################
 	# INITIALISATION FUNCTIONS
 	########################################
-	
+
 	def generateGroupData(self, appId, groupType):
 		indigo.server.log("searching for c-bus %s groups" % (groupType))
 		# use dbgetxml 254/appId to determine names/OID/address of each group
 		self.writeTo(self.connection, "dbgetxml "+self.cbusNetwork+"/"+appId+"\r\n")
 		xml = self.readUntil(self.connection, "344 End XML snippet")
-
+		
 		xml = xml.replace("343-Begin XML snippet","")
 		xml = xml.replace("347-","",2)
 		xml = xml.replace("344 End XML snippet","")
 		xml = xml.replace("\n","",5)
 		xml = xml.replace("<?xml version=\"1.0\" encoding=\"utf-8\"?>","")
-
+		
 		mapping = {}
 		dom = parseString(xml)
 		for group in dom.getElementsByTagName("Group"):
 			address = group.getElementsByTagName("Address")[0].childNodes[0].data
-			mapping[self.cbusNetwork+"/"+appId+"/"+address] = {'oid':group.getElementsByTagName("OID")[0].childNodes[0].data, 
+			mapping[self.cbusNetwork+"/"+appId+"/"+address] = {'oid':group.getElementsByTagName("OID")[0].childNodes[0].data,
 									'name':group.getElementsByTagName("TagName")[0].childNodes[0].data,
 									'unqualifiedAddress':address, 'level':'0'}
 		return mapping
@@ -333,14 +332,14 @@ class Plugin(indigo.PluginBase):
 					if 'type' not in self.cbusLightingMap[group]:
 						self.cbusLightingMap[group]['type'] = self.cbusUnitMap[unit]['unit']
 					else:
-						# we've already matched before.  if unit is relay and value is dimmer replace, otherwise do nothing
+						# we've already matched before.	 if unit is relay and value is dimmer replace, otherwise do nothing
 						# if a group applies across multiple unit types then we need to apply the lowest common feature set to it
 						# for all unit groups that is typically on/off
 						if self.cbusLightingMap[group]['type'] == "dimmer" and self.cbusUnitMap[unit]['unit'] == "relay":
 							self.cbusLightingMap[group]['type'] = self.cbusUnitMap[unit]['unit']
 
 			# if we havent seen a match then really we should set to relay type however for those of us using
-			# MRA like functionality (e.g. audio controls etc) then dimming functionality is required.  Should 
+			# MRA like functionality (e.g. audio controls etc) then dimming functionality is required.	Should
 			# make this a configurable option?
 			if 'type' not in self.cbusLightingMap[group]:
 				self.cbusLightingMap[group]['type'] = "cbusDimmer"
@@ -353,19 +352,19 @@ class Plugin(indigo.PluginBase):
 				# search for c-bus devices to find a match for this address. would be nicer to search by address.
 				if dev.address == group:
 					device = indigo.devices[dev.name]
-					
+			
 			if device == None:
 				device = indigo.device.create(protocol=indigo.kProtocol.Plugin,
-			    	address=group,
-			    	name=self.cbusLightingMap[group]['name'], 
-			    	description=self.cbusLightingMap[group]['name'], 
-			    	pluginId="uk.co.l1fe.indigoplugin.C-Bus",
-			    	deviceTypeId=self.cbusLightingMap[group]['type'],
-			    	props={"OID":self.cbusLightingMap[group]['oid'],"unqualifiedAddress":self.cbusLightingMap[group]['unqualifiedAddress']})
+					address=group,
+					name=self.cbusLightingMap[group]['name'],
+					description=self.cbusLightingMap[group]['name'],
+					pluginId="uk.co.l1fe.indigoplugin.C-Bus",
+					deviceTypeId=self.cbusLightingMap[group]['type'],
+					props={"OID":self.cbusLightingMap[group]['oid'],"unqualifiedAddress":self.cbusLightingMap[group]['unqualifiedAddress']})
 			
 			onState = True
 			if int(self.cbusLightingMap[group]['level']) == 0:
-				onState = False		
+				onState = False
 			if self.cbusLightingMap[group]['type'] == "cbusDimmer":
 				self.updateIndigoLightingState(device, onState,self. cbusLightingMap[group]['level'])
 			else:
@@ -381,13 +380,13 @@ class Plugin(indigo.PluginBase):
 		if panel == None:
 			panel = indigo.device.create(protocol=indigo.kProtocol.Plugin,
 				address="254/208",
-				name="Alarm Panel", 
-				description="C-Bus Enabled Alarm Panel", 
+				name="Alarm Panel",
+				description="C-Bus Enabled Alarm Panel",
 				pluginId="uk.co.l1fe.indigoplugin.C-Bus",
 				deviceTypeId="cbusSecurityAlarmPanel")
 			self.updateIndigoSecurityState(panel, "mainsState", "ok")
 			self.updateIndigoSecurityState(panel, "batteryState", "ok")
-		
+
 	def createSecurityZones(self):
 		indigo.server.log("creating c-bus security zones in Indigo")
 		for group in self.cbusSecurityMap.keys():
@@ -398,12 +397,12 @@ class Plugin(indigo.PluginBase):
 			if device == None:
 				device = indigo.device.create(protocol=indigo.kProtocol.Plugin,
 					address=group,
-					name=self.cbusSecurityMap[group]['name'], 
-					description=self.cbusSecurityMap[group]['name'], 
+					name=self.cbusSecurityMap[group]['name'],
+					description=self.cbusSecurityMap[group]['name'],
 					pluginId="uk.co.l1fe.indigoplugin.C-Bus",
 					deviceTypeId="cbusSecurityZone")
 				self.updateIndigoSecurityState(device, "state", "monitoring")
-				
+
 	########################################
 	# MONITORING DISPATCH FUNCTIONS
 	########################################
@@ -413,9 +412,9 @@ class Plugin(indigo.PluginBase):
 		self.updateIndigoLightingState(self.findDevice(device), True, brightness, sourceunit)
 
 	def lightingRamp(self, action):
-		# updated to account for ramping behaviour.  when a user initiates a ramp c-bus will send a timed ramp
+		# updated to account for ramping behaviour.	 when a user initiates a ramp c-bus will send a timed ramp
 		# message of 0 or 255 over X seconds. If the user releases their finger then an immediate ramp to level
-		# message is sent.  We'll create a timer for the initial press and cancel if the user removes their finger
+		# message is sent.	We'll create a timer for the initial press and cancel if the user removes their finger
 		# before the timer completes.  If the timer completes then the user has ramped to 1 or 255 manually.
 		if int(action[2]) > 0:
 			self.currentTimers[action[0]] = Timer(int(action[2]), self.lightingRampTimerCallback, [action[0], action[1], action[3]])
@@ -511,7 +510,7 @@ class Plugin(indigo.PluginBase):
 	# in status report 1 the first value is the alarm state 0 = disarmed
 	# second value = tamper state
 	# third value = panic state
-	# all other values represet the state of each zone.  0 = sealed, 1 = unsealed, 3 = open, 4 = short
+	# all other values represet the state of each zone.	 0 = sealed, 1 = unsealed, 3 = open, 4 = short
 	def panelStatusReportOne(self, action):
 		if action[1] in self.alarmArmedStates:
 			self.updateIndigoSecurityState(self.findDevice(action[0]), "state", self.alarmArmedStates[action[1]])
@@ -524,22 +523,22 @@ class Plugin(indigo.PluginBase):
 			if zone and value in self.zoneStates:
 				self.updateIndigoSecurityState(zone, "state", self.zoneStates[value])
 
-	# all values in status report 2 represent zones 33 through 80			
+	# all values in status report 2 represent zones 33 through 80
 	def panelStatusReportTwo(self, action):
 		for index, value in enumerate(action[1:]):
 			zone = self.findDevice(self.cbusNetwork+"/208/"+str(index+33))
 			if zone and value in self.zoneStates:
 				self.updateIndigoSecurityState(zone, "state", self.zoneStates[value])
-	
+
 	########################################
 	# ACTION CALLBACKS
 	########################################
-	
+
 	def actionControlDimmerRelay(self, action, dev):
 		###### TURN ON ######
 		if action.deviceAction == indigo.kDeviceAction.TurnOn:
 			# Command hardware module (dev) to turn ON here:
-
+			
 			self.writeTo(self.connection,"on "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
 			result = self.readUntil(self.connection, "200 OK:.*")
 			if result == '':
@@ -565,7 +564,7 @@ class Plugin(indigo.PluginBase):
 			# Command hardware module (dev) to toggle here:
 			# ** IMPLEMENT ME **
 			newOnState = not dev.onState
-
+			
 			if newOnState:
 				self.writeTo(self.connection,"on "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
 			else:
@@ -581,29 +580,29 @@ class Plugin(indigo.PluginBase):
 		###### SET BRIGHTNESS ######
 		elif action.deviceAction == indigo.kDeviceAction.SetBrightness:
 			# Command hardware module (dev) to set brightness here:
-
+			
 			self.rampChannel(dev, "set brightness", self.valueFromIndigo(action.actionValue))
-		
+
 		###### BRIGHTEN BY ######
 		elif action.deviceAction == indigo.kDeviceAction.BrightenBy:
 			# Command hardware module (dev) to do a relative brighten here:
-
+			
 			newBrightness = dev.brightness + action.actionValue
 			if newBrightness > 100:
 				newBrightness = 100
-				
+			
 			self.rampChannel(dev, "brighten", self.valueFromIndigo(newBrightness))
 
 		###### DIM BY ######
 		elif action.deviceAction == indigo.kDeviceAction.DimBy:
 			# Command hardware module (dev) to do a relative dim here:
-
+			
 			newBrightness = dev.brightness - action.actionValue
 			if newBrightness < 0:
 				newBrightness = 0
-				
+			
 			self.rampChannel(dev, "dim", self.valueFromIndigo(newBrightness))
-				
+
 		###### STATUS REQUEST ######
 		elif action.deviceAction == indigo.kDeviceAction.RequestStatus:
 			# Query hardware module (dev) for its current states here:
@@ -612,13 +611,24 @@ class Plugin(indigo.PluginBase):
 
 	def updateDLTLabel(self, action, dev):
 		if not action.props.get("cbusGroup",""):
-			indigo.server.log("DLT Label: No c-bus group provided.")
-		if not action.props.get("dltLabel",""):
-			indigo.server.log("DLT Label: No label provided.")
-		if len(action.props.get("dltLabel","")) > 9:
-			indigo.server.log("DLT Label: Label too long (recommended 9 chars or less).")
-		if action.props.get("cbusGroup","") and action.props.get("dltLabel","") and len(action.props.get("dltLabel","")) <= 9:
-			self.writeTo(self.connection, "lighting label "+self.cbusProjectName+"/"+self.cbusNetwork+"/56 1 "+ action.props.get("cbusGroup","").split("/")[2] +" - 0 "+action.props.get("dltLabel","").encode("hex")+"\r\n")
+			indigo.server.log("dlt label: No c-bus group provided.", isError=True)
+		else:
+			# Get name of the group for logging purposes
+			devAddr = self.cbusNetwork+"/56"+action.props.get("cbusGroup","")
+			devName = ""
+			for dev in indigo.devices.iter("self"):
+				if dev.address == devAddr:
+					devName = dev.name
+			if not action.props.get("dltLabel",""):
+				indigo.server.log("dlt label: no label provided.", isError=True)
+			else:
+				# before further checks lets resolve the potentially templated label.
+				label = self.generateLabel(action.props.get("dltLabel",""))
+				if len(label) > 9:
+					indigo.server.log(u"dlt label is too long (<=9 chars): \"%s\" \"%s\"" % (devName, label), isError=True)
+				if action.props.get("cbusGroup","") and label and len(label) <= 9:
+					indigo.server.log(u"dlt label update \"%s\" \"%s\"" % (devName, label))
+					self.writeTo(self.connection, "lighting label "+self.cbusProjectName+"/"+self.cbusNetwork+"/56 1 "+ action.props.get("cbusGroup","").split("/")[2] +" - 0 "+label.encode("hex")+"\r\n")
 
 	def cbusGroupList(self, filter="", valuesDict=None, typeId="", targetId=0):
 		# used by DLT labelling action.
@@ -626,3 +636,35 @@ class Plugin(indigo.PluginBase):
 		for group in self.cbusLightingMap.keys():
 			groups.append([group, self.cbusLightingMap[group]['name']])
 		return sorted(groups, key=lambda x: x[1])
+
+	########################################
+	# MISC FUNCTIONS
+	########################################
+
+	def generateLabel(self, text):
+		# a very simple templating engine to extract IOM expressions
+		potential = False
+		evaluate = False
+		result = ""
+		evalstr = ""
+		for char in text:
+			if char == "$":
+				potential = True
+			elif char == "{" and potential:
+				evaluate = True
+			elif char == "}":
+				if evaluate:
+					result = result + str(eval(evalstr))
+					evalstr = ""
+					potential = False
+					evaluate = False
+				else:
+					# found } but not in eval state
+					result = result + char
+			else:
+				if evaluate:
+					evalstr = evalstr+char
+				else:
+					result = result + char
+					potential = False
+		return result

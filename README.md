@@ -19,6 +19,8 @@ The plugin dynamically generates devices for each lighting group and will attemp
 
 A single "Group Manually Changed" trigger is available for application 56 which enables you to monitor for human initiated group changes from a switch (e.g. DLT).  You can monitor for on/off/any changes.
 
+Finally, there is a *very* simple templating engine in the plugin to interpolate indigo state into your DLT labels.  Simply wrap your python expression in ${}.  An example DLT Label might be: "Temp: ${indigo.devices["Bathroom"].states["temperatureInput1"]}C"
+
 Security
 --------
 
