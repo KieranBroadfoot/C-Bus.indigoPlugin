@@ -13,4 +13,12 @@
 			</Field>
 		</ConfigUI>
     </Action>
+    <Action id="sendTime">
+        <Name>Update C-Bus time from local clock</Name>
+        <CallbackMethod>sendTime</CallbackMethod>
+    </Action>
+    <Action id="sendDate">
+        <Name>Update C-Bus date from local clock</Name>
+        <CallbackMethod>sendDate</CallbackMethod>
+    </Action>
 </Actions>

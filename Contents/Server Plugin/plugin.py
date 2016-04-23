@@ -13,6 +13,7 @@ import time
 from xml.dom.minidom import parseString
 from threading import Timer
 import StringIO
+from time import strftime
 
 class Plugin(indigo.PluginBase):
 
@@ -636,6 +637,14 @@ class Plugin(indigo.PluginBase):
 		for group in self.cbusLightingMap.keys():
 			groups.append([group, self.cbusLightingMap[group]['name']])
 		return sorted(groups, key=lambda x: x[1])
+
+        def sendTime(self, action, dev):
+                indigo.server.log("updating c-bus time")
+                self.writeTo(self.connection, "clock time "+self.cbusNetwork+"/223 "+strftime("%H:%M:%S")+"\r\n")
+
+        def sendDate(self, action, dev):
+                indigo.server.log("updating c-bus date")
+                self.writeTo(self.connection, "clock date "+self.cbusNetwork+"/223 "+strftime("%Y-%m-%d")+"\r\n")
 
 	########################################
 	# MISC FUNCTIONS
