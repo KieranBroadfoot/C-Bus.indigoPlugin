@@ -1,5 +1,31 @@
 <?xml version="1.0"?>
 <Actions>
+    <Action id="rampGroupWithTimer"> 
+        <Name>Ramp Group With Timer</Name>
+        <CallbackMethod>rampGroupWithTimer</CallbackMethod>
+		<ConfigUI>
+			<Field id="cbusGroup" type="menu">
+				<Label>C-Bus Group:</Label>
+				<List class="self" filter="stuff" method="cbusGroupList"/>
+			</Field>
+			<Field id="numberOfSeconds" type="textfield" defaultValue="20">
+				<Label>Seconds:</Label>
+			</Field>
+			<Field id="level" type="textfield" defaultValue="100">
+				<Label>Level (%):</Label>
+			</Field>
+		</ConfigUI>
+    </Action>
+    <Action id="terminateRampOnGroup"> 
+        <Name>Terminate Ramp on Group</Name>
+        <CallbackMethod>terminateRampOnGroup</CallbackMethod>
+		<ConfigUI>
+			<Field id="cbusGroup" type="menu">
+				<Label>C-Bus Group:</Label>
+				<List class="self" filter="stuff" method="cbusGroupList"/>
+			</Field>
+		</ConfigUI>
+    </Action>
     <Action id="updateDLTLabel"> 
         <Name>Update a DLT Label</Name>
         <CallbackMethod>updateDLTLabel</CallbackMethod>

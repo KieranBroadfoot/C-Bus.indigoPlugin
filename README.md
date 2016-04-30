@@ -12,8 +12,9 @@ This plugin supports simple operations for application 56:
 * lighting off
 * lighting ramp
 * DLT labelling
-
-It does not support terminate ramp.
+* lighting ramp (over X seconds)
+* terminate ramp
+* update time/date
 
 The plugin dynamically generates devices for each lighting group and will attempt to determine if the group is associated to a dimmer or relay channel.  If it cannot guess (which means it cannot determine the unit type which is supporting the group) it will default to a dimmer channel.  
 
