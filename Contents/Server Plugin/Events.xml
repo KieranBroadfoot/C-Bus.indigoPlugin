@@ -17,6 +17,9 @@
 			</Field>
 		</ConfigUI>
 	</Event>
+	<Event id="anyGroupManuallyChanged">
+		<Name>Any Group Manually Changed</Name>
+	</Event>
 	<Event id="away" deviceFilter="self.cbusSecurityAlarmPanel">
 		<Name>Panel Status is Away</Name>
 	</Event>
