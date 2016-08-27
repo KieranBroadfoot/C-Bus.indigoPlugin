@@ -628,25 +628,25 @@ class Plugin(indigo.PluginBase):
 	# ACTION CALLBACKS
 	########################################
 
-		def rampGroupWithTimer(self, action, dev):
-			if not action.props.get("cbusGroup","") or not action.props.get("numberOfSeconds","") or not action.props.get("level"):
-				indigo.server.log("timed ramp: no c-bus group, timer or level provided.", isError=True)
-			else:
-				try:
-					for dev in indigo.devices.iter("self"):
-						if dev.address == action.props.get("cbusGroup",""):
-							self.rampChannel(dev, "ramp", self.valueFromIndigo(int(action.props.get("level",""))), int(action.props.get("numberOfSeconds")))
-				except TypeError:
-					indigo.server.log("timed ramp: level or timer not a valid integer", isError=True) 
-
-		def terminateRampOnGroup(self, action, dev):
-			if not action.props.get("cbusGroup",""):
-				indigo.server.log("terminate ramp: No c-bus group provided.", isError=True)
-			else:
+	def rampGroupWithTimer(self, action, dev):
+		if not action.props.get("cbusGroup","") or not action.props.get("numberOfSeconds","") or not action.props.get("level"):
+			indigo.server.log("timed ramp: no c-bus group, timer or level provided.", isError=True)
+		else:
+			try:
 				for dev in indigo.devices.iter("self"):
 					if dev.address == action.props.get("cbusGroup",""):
-						indigo.server.log(u"terminate ramp \"%s\"" % (dev.name))
-						self.writeTo(self.connection,"terminateramp "+action.props.get("cbusGroup","")+"\r\n")
+						self.rampChannel(dev, "ramp", self.valueFromIndigo(int(action.props.get("level",""))), int(action.props.get("numberOfSeconds")))
+			except TypeError:
+				indigo.server.log("timed ramp: level or timer not a valid integer", isError=True) 
+
+	def terminateRampOnGroup(self, action, dev):
+		if not action.props.get("cbusGroup",""):
+			indigo.server.log("terminate ramp: No c-bus group provided.", isError=True)
+		else:
+			for dev in indigo.devices.iter("self"):
+				if dev.address == action.props.get("cbusGroup",""):
+					indigo.server.log(u"terminate ramp \"%s\"" % (dev.name))
+					self.writeTo(self.connection,"terminateramp "+action.props.get("cbusGroup","")+"\r\n")
 
 	def updateDLTLabel(self, action, dev):
 		if not action.props.get("cbusGroup",""):
@@ -676,13 +676,13 @@ class Plugin(indigo.PluginBase):
 			groups.append([group, self.cbusLightingMap[group]['name']])
 		return sorted(groups, key=lambda x: x[1])
 
-		def sendTime(self, action, dev):
-			indigo.server.log("updating c-bus time")
-			self.writeTo(self.connection, "clock time "+self.cbusNetwork+"/223 "+strftime("%H:%M:%S")+"\r\n")
+	def sendTime(self, action, dev):
+		indigo.server.log("updating c-bus time")
+		self.writeTo(self.connection, "clock time "+self.cbusNetwork+"/223 "+strftime("%H:%M:%S")+"\r\n")
 
-		def sendDate(self, action, dev):
-			indigo.server.log("updating c-bus date")
-			self.writeTo(self.connection, "clock date "+self.cbusNetwork+"/223 "+strftime("%Y-%m-%d")+"\r\n")
+	def sendDate(self, action, dev):
+		indigo.server.log("updating c-bus date")
+		self.writeTo(self.connection, "clock date "+self.cbusNetwork+"/223 "+strftime("%Y-%m-%d")+"\r\n")
 
 	########################################
 	# MISC FUNCTIONS
