@@ -1,7 +1,7 @@
 C-Bus.indigoPlugin
 ==================
 
-A [Clipsal C-Bus](http://www.clipsal.com/consumer/products/smart_home_technology/c-bus_home_control) plugin for [Perceptive Automation's Indigo 6](http://www.perceptiveautomation.com/indigo/index.html)
+A [Clipsal C-Bus](http://www.clipsal.com/consumer/products/smart_home_technology/c-bus_home_control) plugin for [Indigo Domotics Indigo 7](http://www.indigodomo.com)
 
 Lighting
 --------
@@ -84,6 +84,31 @@ Each zone also has a single state which can be any one of the following conditio
 * Arm Not Ready
 
 The final condition indicates that the alarm panel attempted to arm itself but a zone was not ready to arm.  Reacting to triggered events or state changes is the most likely use-case.
+
+Broadcast Messages
+------------------
+
+The plugin (as of v1.0) generates Indigo 7 broadcast messages for use by other plugins.  
+
+```
+PluginID: uk.co.l1fe.indigoplugin.C-Bus
+MessageType: lightingStateChanged | lightingStateManuallyChanged 
+Returns dictionary:
+ {
+    'deviceName':  <text string>,
+    'deviceAddress': <text string>,
+    'state': "on|off",
+    'type': "relay|dimmer",
+    'brightness': <integer>
+}
+MessageType: securityStateChange 
+Returns dictionary:
+ {
+    'deviceName':  <text string>,
+    'deviceAddress': <text string>,
+    'state': <text string>
+}
+```
 
 C-Gate Setup
 ------------

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 ####################
-# Copyright (c) 2015, Kieran J. Broadfoot. All rights reserved.
+# Copyright (c) 2016, Kieran J. Broadfoot. All rights reserved.
 # http://kieranbroadfoot.com
 #
 
@@ -19,6 +19,7 @@ class Plugin(indigo.PluginBase):
 
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
+		self.validConnections = False
 		self.events = {}
 		self.currentTimers = {}
 		self.cgateLocation = pluginPrefs.get("cgateNetworkLocation", "127.0.0.1")
@@ -40,7 +41,7 @@ class Plugin(indigo.PluginBase):
 			"security_zone_open": self.zoneOpen,
 			"security_zone_short": self.zoneShort,
 			"security_zone_isolated": self.zoneIsolated,
-			"security_arm_notReady": self.zoneArmNotReady,
+			"security_arm_not_ready": self.zoneArmNotReady,
 			"security_arm_ready": self.panelArmReady,
 			"security_system_arm": self.panelSystemArmed,
 			"security_system_disarmed": self.panelSystemDisarmed,
@@ -88,32 +89,51 @@ class Plugin(indigo.PluginBase):
 		indigo.PluginBase.__del__(self)
 
 	def startup(self):
-		indigo.server.log("starting c-bus plugin")
-		self.connection = telnetlib.Telnet(self.cgateLocation, 20023)
-		self.initConnection()
-		self.getReadyState()
-		
-		# refactor to pass application ID and type (e.g. 'lighting')
-		self.cbusLightingMap = self.generateGroupData('56','lighting')
-		
-		# find unit types in order to map lighiting groups to channel types
-		self.generateDeviceTypesPerGroup()
-		
-		# map channel types to groups
-		self.mapLightingDevices()
-		self.createLightingDevices()
-		
-		# generate Security devices if needed
-		if self.cbusSecurityEnabled:
-			self.cbusSecurityMap = self.generateGroupData('208','security')
-			self.createSecurityPanel()
-			self.createSecurityZones()
-			# at this point we have no state for any device. this is determined via a status_request - see concurrent thread
+		self.logger.info("starting c-bus plugin")
+		if self.loadConnections(self.cgateLocation):
+			self.getReadyState()
+
+			# refactor to pass application ID and type (e.g. 'lighting')
+			self.cbusLightingMap = self.generateGroupData('56','lighting')
+
+			# find unit types in order to map lighiting groups to channel types
+			self.generateDeviceTypesPerGroup()
+
+			# map channel types to groups
+			self.mapLightingDevices()
+			self.createLightingDevices()
+
+			# generate Security devices if needed
+			if self.cbusSecurityEnabled:
+				self.cbusSecurityMap = self.generateGroupData('208','security')
+				self.createSecurityPanel()
+				self.createSecurityZones()
+				# at this point we have no state for any device. this is determined via a status_request - see concurrent thread
 
 	def shutdown(self):
-		indigo.server.log("stopping c-bus plugin")
-		self.connection.close()
-		pass
+		self.logger.info("stopping c-bus plugin")
+		if self.validConnections:
+			self.connection.close()
+
+	def validatePrefsConfigUi(self, valuesDict):
+		if self.loadConnections(valuesDict["cgateNetworkLocation"]):
+			self.cgateLocation = valuesDict["cgateNetworkLocation"]
+			return True
+		else:
+			errorDict = indigo.Dict()
+			errorDict["cgateNetworkLocation"] = "Invalid location"
+			return (False, valuesDict, errorDict)
+
+	def checkboxChanged(self, valuesDict):
+		if valuesDict["cbusSecurityEnabled"] == True:
+			self.logger.info("enabling c-bus security feature")
+			self.cbusSecurityEnabled = True
+			if self.cbusSecurityEnabled and self.validConnections:
+				self.requestSecurityStatus()
+		else:
+			self.logger.info("disabling c-bus security feature")
+			self.cbusSecurityEnabled = False
+		return valuesDict
 
 	def triggerStartProcessing(self, trigger):
 		if trigger.pluginTypeId not in self.events:
@@ -130,35 +150,40 @@ class Plugin(indigo.PluginBase):
 	########################################
 
 	def runConcurrentThread(self):
-		indigo.server.log("starting c-bus monitoring thread")
-		try:
-			self.monitor = telnetlib.Telnet(self.cgateLocation, 20025)
-			# we have a connection so if security is enabled let's request an initial status
-			if self.cbusSecurityEnabled:
-				self.requestSecurityStatus()
-			while True:
-				data = self.readUntil(self.monitor, ".*\n")
-				# we might receive multiple lines in this data string.
-				for line in data.split('\n'):
-					if line:
-						if line.startswith("# "):
-							line = line[2:]
-						# split on space and concat 0 and 1. look up in the dispatch table
-						action = line.split()
-						if not action[0] and not action[1]:
-							continue
-						try:
-							lookup = action[0]+"_"+action[1]
-							if lookup in self.dispatchTable:
-								self.dispatchTable[lookup](action[2:])
-						except IndexError:
-							indigo.server.log(u"index error: %s" % (line), isError=True)
-		
-		except self.StopThread:
-			pass
+		self.logger.info("starting c-bus monitoring thread")
+		# we have a connection so if security is enabled let's request an initial status
+		if self.cbusSecurityEnabled and self.validConnections:
+			self.requestSecurityStatus()
+		while self.stopThread == False:
+			if self.validConnections:
+				try:
+					data = self.readUntil(self.monitor, ".*\n")
+					# we might receive multiple lines in this data string.
+					for line in data.split('\n'):
+						if line:
+							if line.startswith("# "):
+								line = line[2:]
+							# split on space and concat 0 and 1. look up in the dispatch table
+							action = line.split()
+							if len(action) < 2:
+								continue
+							try:
+								lookup = action[0]+"_"+action[1]
+								if lookup in self.dispatchTable:
+									self.dispatchTable[lookup](action[2:])
+							except IndexError:
+								self.logger.warn("index error: %s" % (line))
+				except Exception:
+					self.logger.warn("exception occurred whilst monitoring c-bus")
+					pass
+			else:
+				# wait a while to see if the user gives us a valid c-gate configuration
+				self.sleep(5)
+		if self.validConnections:
+			self.monitor.close()
 
 	def stopConcurrentThread(self):
-		self.monitor.close()
+		self.stopThread = True
 
 	########################################
 	# COMMUNICATION (WITH INDIGO) FUNCTIONS
@@ -173,8 +198,19 @@ class Plugin(indigo.PluginBase):
 	def updateIndigoLightingState(self, device, state, brightness, source="self"):
 		if device:
 			if source is not "self":
+				# only generate broadcasts when state changes are seen on the c-bus network. it's a sure way to
+				# know that changes Indigo generates have taken effect.
+				broadcastType = u"lightingStateChanged"
+				broadcastPacket = {'deviceName': device.name, 'deviceAddress': device.address, 'type': 'relay', 'state': 'off'}
+				if state:
+					broadcastPacket['state'] = "on"
+				if device.deviceTypeId == "cbusDimmer":
+					broadcastPacket['type'] = "dimmer"
+					broadcastPacket['brightness'] = self.valueToIndigo(brightness)
 				source = source.split("=")[1]
 				if self.cbusUnitMap[source]['unit'] == "cbusSwitch":
+					# specific behaviours if the request originated from the c-bus network, therefore a manual update
+					broadcastType = u"lightingStateManuallyChanged"
 					if "groupManuallyChanged" in self.events:
 						for trigger in self.events["groupManuallyChanged"]:
 							if self.events["groupManuallyChanged"][trigger].pluginProps['group'] == device.address:
@@ -190,6 +226,7 @@ class Plugin(indigo.PluginBase):
 					if "anyGroupManuallyChanged" in self.events:
 						for trigger in self.events["anyGroupManuallyChanged"]:
 							indigo.trigger.execute(trigger)
+				indigo.server.broadcastToSubscribers(broadcastType, broadcastPacket)
 			device.updateStateOnServer("onOffState", state)
 			if device.deviceTypeId == "cbusDimmer" and brightness:
 				device.updateStateOnServer("brightnessLevel", self.valueToIndigo(brightness))
@@ -197,6 +234,7 @@ class Plugin(indigo.PluginBase):
 	def updateIndigoSecurityState(self, device, stateType, state):
 		if device:
 			device.updateStateOnServer(stateType, value=state)
+			indigo.server.broadcastToSubscribers(u"securityStateChange", {'deviceName': device.name, 'deviceAddress': device.address, 'state': state})
 			# we also want to execute triggers associated to this action.
 			# the "state" value is also the name of the trigger
 			# if the device is the panel then execute all triggers
@@ -225,8 +263,18 @@ class Plugin(indigo.PluginBase):
 	# COMMUNICATION (WITH C-BUS) FUNCTIONS
 	########################################
 
-	def initConnection(self):
-		self.readUntil(self.connection, "201 Service ready:.*")
+	def loadConnections(self, location):
+		while True:
+			try:
+				self.connection = telnetlib.Telnet(location, 20023)
+				self.monitor = telnetlib.Telnet(location, 20025)
+				self.readUntil(self.connection, "201 Service ready:.*")
+				self.validConnections = True
+				self.logger.info("connected to C-Gate")
+				return True
+			except Exception:
+				self.logger.warn("unable to connect to C-Gate. waiting 10 seconds for retry")
+				self.sleep(10)
 
 	def getReadyState(self):
 		ready = False
@@ -235,14 +283,14 @@ class Plugin(indigo.PluginBase):
 			networkState = self.readUntil(self.connection, "131.*")
 			check = re.match(".*network="+self.cbusNetwork+" State=ok.*",networkState)
 			if check:
-				indigo.server.log("c-bus network ready")
+				self.logger.info("c-bus network ready")
 				ready = True
 			else:
-				indigo.server.log("c-bus not yet ready. waiting 10 seconds for retry")
-				time.sleep(10)
+				self.logger.warn("c-bus network not yet ready. waiting 10 seconds for retry")
+				self.sleep(10)
 
 	def requestSecurityStatus(self):
-		indigo.server.log("requesting initial security status")
+		self.logger.info("requesting initial security status")
 		# request 1 represents zones up to 32, 2 provides 33-80
 		for request in ['1','2']:
 			self.writeTo(self.connection, "security status_request "+self.cbusNetwork+"/208 "+request+"\r\n")
@@ -252,7 +300,10 @@ class Plugin(indigo.PluginBase):
 		try:
 			return connection.read_until(str, timeout)
 		except EOFError:
-			indigo.server.log("lost connection to c-gate")
+			self.logger.warn("lost connection to c-gate. attempting to reconnect")
+			if self.loadConnections(self.cgateLocation):
+				self.getReadyState()
+				return ""
 
 	def writeTo(self, connection, str):
 		connection.write(str.encode('latin-1'))
@@ -261,12 +312,12 @@ class Plugin(indigo.PluginBase):
 		self.writeTo(self.connection,"ramp "+self.cbusNetwork+"/56/"+device.pluginProps['unqualifiedAddress']+" "+level+" "+str(timer)+"s\r\n")
 		result = self.readUntil(self.connection, "200 OK:.*")
 		if result == '':
-			indigo.server.log(u"send \"%s\" %s to %d failed" % (device.name, actionString, level), isError=True)
+			self.logger.warn("send \"%s\" %s to %d failed" % (device.name, actionString, int(level)))
 		else:
 			if timer > 0:
-				indigo.server.log(u"sent \"%s\" %s to %d over %d seconds" % (device.name, actionString, int(level), timer))
+				self.logger.info("sent \"%s\" %s to %d over %d seconds" % (device.name, actionString, int(level), timer))
 			else:
-				indigo.server.log(u"sent \"%s\" %s to %d" % (device.name, actionString, int(level)))
+				self.logger.info("sent \"%s\" %s to %d" % (device.name, actionString, int(level)))
 			if int(level) > 0:
 				self.updateIndigoLightingState(device, True, level)
 			else:
@@ -278,28 +329,31 @@ class Plugin(indigo.PluginBase):
 	########################################
 
 	def generateGroupData(self, appId, groupType):
-		indigo.server.log("searching for c-bus %s groups" % (groupType))
-		# use dbgetxml 254/appId to determine names/OID/address of each group
-		self.writeTo(self.connection, "dbgetxml "+self.cbusNetwork+"/"+appId+"\r\n")
-		xml = self.readUntil(self.connection, "344 End XML snippet")
-		
-		xml = xml.replace("343-Begin XML snippet","")
-		xml = xml.replace("347-","",2)
-		xml = xml.replace("344 End XML snippet","")
-		xml = xml.replace("\n","",5)
-		xml = xml.replace("<?xml version=\"1.0\" encoding=\"utf-8\"?>","")
-		
-		mapping = {}
-		dom = parseString(xml)
-		for group in dom.getElementsByTagName("Group"):
-			address = group.getElementsByTagName("Address")[0].childNodes[0].data
-			mapping[self.cbusNetwork+"/"+appId+"/"+address] = {'oid':group.getElementsByTagName("OID")[0].childNodes[0].data,
-									'name':group.getElementsByTagName("TagName")[0].childNodes[0].data,
-									'unqualifiedAddress':address, 'level':'0'}
-		return mapping
+		self.logger.info("searching for c-bus %s groups" % (groupType))
+		while True:
+			# use dbgetxml 254/appId to determine names/OID/address of each group
+			self.writeTo(self.connection, "dbgetxml "+self.cbusNetwork+"/"+appId+"\r\n")
+			xml = self.readUntil(self.connection, "344 End XML snippet")
+			xml = xml.replace("343-Begin XML snippet","")
+			xml = xml.replace("347-","",2)
+			xml = xml.replace("344 End XML snippet","")
+			xml = xml.replace("\n","",5)
+			xml = xml.replace("<?xml version=\"1.0\" encoding=\"utf-8\"?>","")
+			try:
+				mapping = {}
+				dom = parseString(xml)
+				for group in dom.getElementsByTagName("Group"):
+					address = group.getElementsByTagName("Address")[0].childNodes[0].data
+					mapping[self.cbusNetwork+"/"+appId+"/"+address] = {'oid':group.getElementsByTagName("OID")[0].childNodes[0].data,
+											'name':group.getElementsByTagName("TagName")[0].childNodes[0].data,
+											'unqualifiedAddress':address, 'level':'0'}
+				return mapping
+			except Exception:
+				self.logger.warn("c-bus %s database not yet ready. waiting 10 seconds for retry" % (groupType))
+				self.sleep(10)
 
 	def generateDeviceTypesPerGroup(self):
-		indigo.server.log("searching for c-bus units")
+		self.logger.info("searching for c-bus units")
 		self.writeTo(self.connection, "tree "+self.cbusNetwork+"\r\n")
 		treeStr = self.readUntil(self.connection, "320 -end-")
 		# we are looking for two types of items.
@@ -326,7 +380,7 @@ class Plugin(indigo.PluginBase):
 					self.cbusLightingMap[self.cbusNetwork+"/56/"+m1.group(1)]['units'] = m1.group(3).split(',')
 
 	def mapLightingDevices(self):
-		indigo.server.log("mapping c-bus lighting groups to channel types")
+		self.logger.info("mapping c-bus lighting groups to channel types")
 		# for each item in lighting map, find the units that supports it.  if not found set to relay
 		# if found on multiple units then default to relay
 		# then create the device
@@ -353,7 +407,7 @@ class Plugin(indigo.PluginBase):
 				self.cbusLightingMap[group]['type'] = "cbusDimmer"
 
 	def createLightingDevices(self):
-		indigo.server.log("creating c-bus lighting devices in Indigo")
+		self.logger.info("creating c-bus lighting devices in Indigo")
 		for group in self.cbusLightingMap.keys():
 			device = None
 			for dev in indigo.devices.iter("self"):
@@ -379,7 +433,7 @@ class Plugin(indigo.PluginBase):
 				self.updateIndigoLightingState(device, onState, None)
 
 	def createSecurityPanel(self):
-		indigo.server.log("creating c-bus security panel device in Indigo")
+		self.logger.info("creating c-bus security panel device in Indigo")
 		# I currently presume there is only one c-bus enabled alarm panel.
 		panel = None
 		for dev in indigo.devices.iter("self.cbusSecurityAlarmPanel"):
@@ -396,7 +450,7 @@ class Plugin(indigo.PluginBase):
 			self.updateIndigoSecurityState(panel, "batteryState", "ok")
 
 	def createSecurityZones(self):
-		indigo.server.log("creating c-bus security zones in Indigo")
+		self.logger.info("creating c-bus security zones in Indigo")
 		for group in self.cbusSecurityMap.keys():
 			device = None
 			for dev in indigo.devices.iter("self.cbusSecurityZone"):
@@ -469,6 +523,7 @@ class Plugin(indigo.PluginBase):
 
 	def panelSystemArmed(self, action):
 		if action[1] in self.alarmArmedStates:
+			self.updateIndigoSecurityState(self.findDevice(action[0]), "state", "armed")
 			self.updateIndigoSecurityState(self.findDevice(action[0]), "state", self.alarmArmedStates[action[1]])
 
 	def panelSystemDisarmed(self, action):
@@ -557,9 +612,9 @@ class Plugin(indigo.PluginBase):
 			self.writeTo(self.connection,"on "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
 			result = self.readUntil(self.connection, "200 OK:.*")
 			if result == '':
-				indigo.server.log(u"send \"%s\" %s failed" % (dev.name, "on"), isError=True)
+				self.logger.warn("send \"%s\" %s failed" % (dev.name, "on"))
 			else:
-				indigo.server.log(u"sent \"%s\" %s" % (dev.name, "on"))
+				self.logger.info("sent \"%s\" %s" % (dev.name, "on"))
 				self.updateIndigoLightingState(dev, True, None)
 
 		###### TURN OFF ######
@@ -569,15 +624,14 @@ class Plugin(indigo.PluginBase):
 			self.writeTo(self.connection,"off "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
 			result = self.readUntil(self.connection, "200 OK:.*")
 			if result == '':
-				indigo.server.log(u"send \"%s\" %s failed" % (dev.name, "off"), isError=True)
+				self.logger.warn("send \"%s\" %s failed" % (dev.name, "off"))
 			else:
-				indigo.server.log(u"sent \"%s\" %s" % (dev.name, "off"))
+				self.logger.info("sent \"%s\" %s" % (dev.name, "off"))
 				self.updateIndigoLightingState(dev, False, None)
 
 		###### TOGGLE ######
 		elif action.deviceAction == indigo.kDeviceAction.Toggle:
 			# Command hardware module (dev) to toggle here:
-			# ** IMPLEMENT ME **
 			newOnState = not dev.onState
 			
 			if newOnState:
@@ -587,9 +641,9 @@ class Plugin(indigo.PluginBase):
 			result = self.readUntil(self.connection, "200 OK:.*")
 			
 			if result == '':
-				indigo.server.log(u"send \"%s\" %s failed" % (dev.name, "toggle"), isError=True)
+				self.logger.warn("send \"%s\" %s failed" % (dev.name, "toggle"))
 			else:
-				indigo.server.log(u"sent \"%s\" %s" % (dev.name, "toggle"))
+				self.logger.info("sent \"%s\" %s" % (dev.name, "toggle"))
 				self.updateIndigoLightingState(dev, newOnState, None)
 
 		###### SET BRIGHTNESS ######
@@ -622,7 +676,7 @@ class Plugin(indigo.PluginBase):
 		elif action.deviceAction == indigo.kDeviceAction.RequestStatus:
 			# Query hardware module (dev) for its current states here:
 			# ** IMPLEMENT ME **
-			indigo.server.log(u"sent \"%s\" %s" % (dev.name, "status request"))
+			self.logger.info(u"sent \"%s\" %s" % (dev.name, "status request"))
 
 	########################################
 	# ACTION CALLBACKS
@@ -630,27 +684,27 @@ class Plugin(indigo.PluginBase):
 
 	def rampGroupWithTimer(self, action, dev):
 		if not action.props.get("cbusGroup","") or not action.props.get("numberOfSeconds","") or not action.props.get("level"):
-			indigo.server.log("timed ramp: no c-bus group, timer or level provided.", isError=True)
+			self.logger.warn("timed ramp: no c-bus group, timer or level provided.")
 		else:
 			try:
 				for dev in indigo.devices.iter("self"):
 					if dev.address == action.props.get("cbusGroup",""):
 						self.rampChannel(dev, "ramp", self.valueFromIndigo(int(action.props.get("level",""))), int(action.props.get("numberOfSeconds")))
 			except TypeError:
-				indigo.server.log("timed ramp: level or timer not a valid integer", isError=True) 
+				self.logger.warn("timed ramp: level or timer not a valid integer")
 
 	def terminateRampOnGroup(self, action, dev):
 		if not action.props.get("cbusGroup",""):
-			indigo.server.log("terminate ramp: No c-bus group provided.", isError=True)
+			self.logger.warn("terminate ramp: No c-bus group provided.")
 		else:
 			for dev in indigo.devices.iter("self"):
 				if dev.address == action.props.get("cbusGroup",""):
-					indigo.server.log(u"terminate ramp \"%s\"" % (dev.name))
+					self.logger.info("terminate ramp \"%s\"" % (dev.name))
 					self.writeTo(self.connection,"terminateramp "+action.props.get("cbusGroup","")+"\r\n")
 
 	def updateDLTLabel(self, action, dev):
 		if not action.props.get("cbusGroup",""):
-			indigo.server.log("dlt label: no c-bus group provided.", isError=True)
+			self.logger.warn("dlt label: no c-bus group provided.")
 		else:
 			# Get name of the group for logging purposes
 			devAddr = self.cbusNetwork+"/56"+action.props.get("cbusGroup","")
@@ -659,14 +713,14 @@ class Plugin(indigo.PluginBase):
 				if dev.address == devAddr:
 					devName = dev.name
 			if not action.props.get("dltLabel",""):
-				indigo.server.log("dlt label: no label provided.", isError=True)
+				self.logger.warn("dlt label: no label provided.")
 			else:
 				# before further checks lets resolve the potentially templated label.
 				label = self.generateLabel(action.props.get("dltLabel",""))
 				if len(label) > 9:
-					indigo.server.log(u"dlt label is too long (<=9 chars): \"%s\" \"%s\"" % (devName, label), isError=True)
+					self.logger.warn("dlt label is too long (<=9 chars): \"%s\" \"%s\"" % (devName, label))
 				if action.props.get("cbusGroup","") and label and len(label) <= 9:
-					indigo.server.log(u"dlt label update \"%s\" \"%s\"" % (devName, label))
+					self.logger.info("dlt label update \"%s\" \"%s\"" % (devName, label))
 					self.writeTo(self.connection, "lighting label "+self.cbusProjectName+"/"+self.cbusNetwork+"/56 1 "+ action.props.get("cbusGroup","").split("/")[2] +" - 0 "+label.encode("hex")+"\r\n")
 
 	def cbusGroupList(self, filter="", valuesDict=None, typeId="", targetId=0):
@@ -677,11 +731,11 @@ class Plugin(indigo.PluginBase):
 		return sorted(groups, key=lambda x: x[1])
 
 	def sendTime(self, action, dev):
-		indigo.server.log("updating c-bus time")
+		self.logger.info("updating c-bus time")
 		self.writeTo(self.connection, "clock time "+self.cbusNetwork+"/223 "+strftime("%H:%M:%S")+"\r\n")
 
 	def sendDate(self, action, dev):
-		indigo.server.log("updating c-bus date")
+		self.logger.info("updating c-bus date")
 		self.writeTo(self.connection, "clock date "+self.cbusNetwork+"/223 "+strftime("%Y-%m-%d")+"\r\n")
 
 	########################################

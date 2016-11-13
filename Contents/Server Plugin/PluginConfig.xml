@@ -15,5 +15,6 @@
 	</Field>
 	<Field id="cbusSecurityEnabled" type="checkbox" defaultValue="false">
 		<Label>Support C-Bus Enabled Alarm:</Label>
+		<CallbackMethod>checkboxChanged</CallbackMethod>
 	</Field>
 </PluginConfig>
