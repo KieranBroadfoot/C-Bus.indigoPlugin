@@ -22,6 +22,11 @@ A single "Group Manually Changed" trigger is available for application 56 which 
 
 Finally, there is a *very* simple templating engine in the plugin to interpolate indigo state into your DLT labels.  Simply wrap your python expression in ${}.  An example DLT Label might be: "Temp: ${indigo.devices["Bathroom"].states["temperatureInput1"]}C"
 
+Light Sensors
+-------------
+
+Version 1.0.21 introduces support for 5031PE light sensors and any other Clipsal C-Bus sensor which exposes a LightLevel parameter to C-Gate.  The method to collect this data is by querying the physical unit directly and therefore the plugin cannot automatically determine their existance.  Create a new device of type "C-Bus Light Sensor" and enter the physical unit ID of the device.  The physical unit ID would be the address you used in C-Bus Toolkit.  Please note that the plugin does pay attention to the Target value configured in the unit.
+
 Security
 --------
 

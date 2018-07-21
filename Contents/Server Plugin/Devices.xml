@@ -13,7 +13,7 @@
 		<Name>C-Bus Light Sensor</Name>
 		<ConfigUI>
 			<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
-				<Label>Early C-Bus Light Sensors (firmware v1.0) do not broadcast their sensor values.  By specifying the unit address we can query them once every ~60 seconds.  The unit address is p/UNIT_NUMBER.  If you have a light sensor with a later version of firmware please contact me for enablement.</Label>
+				<Label>Specifying the unit number of the light sensor allows the plugin to query every minute for the current lux level.  This works for the 5031PE sensor and any other that exposes a LightLevel parameter.  If you have a later version of firmware (>1.0) it is possible to broadcast the lux level to the network.  If you have this feature please contact me as I'm keen to provide support.</Label>
 			</Field>
 			<Field id="lightSensorAddress" type="textfield" defaultValue="123">
 				<Label>Unit Address:</Label>
