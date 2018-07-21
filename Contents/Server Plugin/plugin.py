@@ -124,6 +124,22 @@ class Plugin(indigo.PluginBase):
 			errorDict["cgateNetworkLocation"] = "Invalid location"
 			return (False, valuesDict, errorDict)
 
+	def validateDeviceConfigUi(self, valuesDict, typeId, devId):
+		proposedAddress = self.cbusNetwork+"/p/"+valuesDict["lightSensorAddress"]
+		device = None
+		for dev in indigo.devices.iter("self"):
+			if dev.address == proposedAddress:
+				device = indigo.devices[dev.name]
+		if device == None:
+			valuesDict["address"] = proposedAddress
+			valuesDict["SupportsSensorValue"] = True
+			valuesDict["sensorValue"] = 0
+			return (True, valuesDict)
+		else:
+			errorDict = indigo.Dict()
+			errorDict["lightSensorAddress"] = "Unit already specified in Indigo"
+			return (False, valuesDict, errorDict)
+		
 	def checkboxChanged(self, valuesDict):
 		if valuesDict["cbusSecurityEnabled"] == True:
 			self.logger.info("enabling c-bus security feature")
@@ -154,6 +170,7 @@ class Plugin(indigo.PluginBase):
 		# we have a connection so if security is enabled let's request an initial status
 		if self.cbusSecurityEnabled and self.validConnections:
 			self.requestSecurityStatus()
+		counter = 0
 		while self.stopThread == False:
 			if self.validConnections:
 				try:
@@ -176,6 +193,10 @@ class Plugin(indigo.PluginBase):
 				except Exception:
 					self.logger.warn("exception occurred whilst monitoring c-bus")
 					pass
+				counter = counter + 1
+				if counter > 10:
+					self.readLightSensors()
+					counter = 0
 			else:
 				# wait a while to see if the user gives us a valid c-gate configuration
 				self.sleep(5)
@@ -323,6 +344,17 @@ class Plugin(indigo.PluginBase):
 			else:
 				self.updateIndigoLightingState(device, False, level)
 				device.updateStateOnServer("onOffState", False)
+
+	def readLightSensors(self):
+		device = None
+		for dev in indigo.devices.iter("self.cbusLightSensor"):
+			self.writeTo(self.connection, "get "+dev.address+" LightLevel\r\n")
+			result = self.readUntil(self.connection, "300.*")
+			level_split = result.split("=")
+			if len(level_split) > 1:
+				keyValueList = []
+				keyValueList.append({'key':'sensorValue', 'value':int(level_split[1])})
+				dev.updateStatesOnServer(keyValueList)
 
 	########################################
 	# INITIALISATION FUNCTIONS

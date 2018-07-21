@@ -9,6 +9,18 @@
 		<Name>C-Bus Dimmer Channel</Name>
 	</Device>
 	
+	<Device type="sensor" id="cbusLightSensor">
+		<Name>C-Bus Light Sensor</Name>
+		<ConfigUI>
+			<Field id="topLabel" type="label" fontSize="small" fontColor="darkgray">
+				<Label>Early C-Bus Light Sensors (firmware v1.0) do not broadcast their sensor values.  By specifying the unit address we can query them once every ~60 seconds.  The unit address is p/UNIT_NUMBER.  If you have a light sensor with a later version of firmware please contact me for enablement.</Label>
+			</Field>
+			<Field id="lightSensorAddress" type="textfield" defaultValue="123">
+				<Label>Unit Address:</Label>
+			</Field>
+		</ConfigUI>
+	</Device>
+	
 	<Device type="custom" id="cbusSecurityAlarmPanel">
 		<Name>C-Bus Enabled Alarm Panel</Name>
 		<UiDisplayStateId>state</UiDisplayStateId>
