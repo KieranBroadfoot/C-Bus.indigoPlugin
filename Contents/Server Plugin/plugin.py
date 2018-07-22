@@ -90,6 +90,7 @@ class Plugin(indigo.PluginBase):
 
 	def startup(self):
 		self.logger.info("starting c-bus plugin")
+		self.fixAlarmZones()
 		if self.loadConnections(self.cgateLocation):
 			self.getReadyState()
 
@@ -194,7 +195,7 @@ class Plugin(indigo.PluginBase):
 					self.logger.warn("exception occurred whilst monitoring c-bus")
 					pass
 				counter = counter + 1
-				if counter > 10:
+				if counter > 60:
 					self.readLightSensors()
 					counter = 0
 			else:
@@ -256,6 +257,17 @@ class Plugin(indigo.PluginBase):
 		if device:
 			device.updateStateOnServer(stateType, value=state)
 			indigo.server.broadcastToSubscribers(u"securityStateChange", {'deviceName': device.name, 'deviceAddress': device.address, 'state': state})
+			
+			# HomeKit support
+			
+			if stateType == "state" and state in ["triggered", "monitoring", "open", "short", "isolated"]:
+				if state in ["triggered", "open", "isolated"]:
+					device.updateStateImageOnServer(indigo.kStateImageSel.SensorTripped)
+					device.updateStateOnServer("onOffState", value=True, uiValue=state)
+				else:
+					device.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+					device.updateStateOnServer("onOffState", value=False, uiValue=state)
+			
 			# we also want to execute triggers associated to this action.
 			# the "state" value is also the name of the trigger
 			# if the device is the panel then execute all triggers
@@ -288,8 +300,12 @@ class Plugin(indigo.PluginBase):
 		while True:
 			try:
 				self.connection = telnetlib.Telnet(location, 20023)
+				# querying the physical units (e.g. Light Sensors) occurs asynchronously via concurrent thread
+				# to avoid reading the wrong data we need a second channel
+				self.thread_connection = telnetlib.Telnet(location, 20023)
 				self.monitor = telnetlib.Telnet(location, 20025)
 				self.readUntil(self.connection, "201 Service ready:.*")
+				self.readUntil(self.thread_connection, "201 Service ready:.*")
 				self.validConnections = True
 				self.logger.info("connected to C-Gate")
 				return True
@@ -348,17 +364,31 @@ class Plugin(indigo.PluginBase):
 	def readLightSensors(self):
 		device = None
 		for dev in indigo.devices.iter("self.cbusLightSensor"):
-			self.writeTo(self.connection, "get "+dev.address+" LightLevel\r\n")
-			result = self.readUntil(self.connection, "300.*")
+			self.writeTo(self.thread_connection, "get "+dev.address+" LightLevel\r\n")
+			result = self.readUntil(self.thread_connection, "300.*")
 			level_split = result.split("=")
 			if len(level_split) > 1:
 				keyValueList = []
 				keyValueList.append({'key':'sensorValue', 'value':int(level_split[1])})
 				dev.updateStatesOnServer(keyValueList)
+			else:
+				self.logger.error(dev.address+" does not appear to be a Light Sensor")
 
 	########################################
 	# INITIALISATION FUNCTIONS
 	########################################
+	
+	def fixAlarmZones(self):
+		# Check if Alarm Zones have onState property.  If not, recast them.  Introduced change in July 18 to move from custom to sensor base object
+		for dev in indigo.devices.iter("self.cbusSecurityZone"):
+			try:
+				if dev.supportsOnState:
+					continue
+			except Exception:
+				self.logger.info("updating alarm zone: "+dev.name)
+				dev = indigo.device.changeDeviceTypeId(dev, "cbusSecurityZone")
+				dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+				dev.updateStateOnServer("onOffState", value=False, uiValue="monitoring")
 
 	def generateGroupData(self, appId, groupType):
 		self.logger.info("searching for c-bus %s groups" % (groupType))
@@ -640,14 +670,22 @@ class Plugin(indigo.PluginBase):
 		###### TURN ON ######
 		if action.deviceAction == indigo.kDeviceAction.TurnOn:
 			# Command hardware module (dev) to turn ON here:
-			
-			self.writeTo(self.connection,"on "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
-			result = self.readUntil(self.connection, "200 OK:.*")
-			if result == '':
-				self.logger.warn("send \"%s\" %s failed" % (dev.name, "on"))
+			# Homekit sends a brightness request followed by a request to turn on.  
+			# Given "turn on" means 100% you get some odd behaviour as the levels bounce between requested dim level and max.  
+			# Reloading the device state ensures the device gives us the absolute latest status following rampChannel updating
+			# the device.  We now ignore if onState isT rue irrelevant of level.  This might break some use-cases, e.g. using
+			# turn On to ramp to max if the channel is already at a designated ramp level
+			latest_dev = indigo.devices[dev.id]
+			if latest_dev.onState == False:
+				self.writeTo(self.connection,"on "+self.cbusNetwork+"/56/"+dev.pluginProps['unqualifiedAddress']+"\r\n")
+				result = self.readUntil(self.connection, "200 OK:.*")
+				if result == '':
+					self.logger.warn("send \"%s\" %s failed" % (dev.name, "on"))
+				else:
+					self.logger.info("sent \"%s\" %s" % (dev.name, "on"))
+					self.updateIndigoLightingState(dev, True, None)
 			else:
-				self.logger.info("sent \"%s\" %s" % (dev.name, "on"))
-				self.updateIndigoLightingState(dev, True, None)
+				self.logger.info("\"%s\" already on" % (dev.name))
 
 		###### TURN OFF ######
 		elif action.deviceAction == indigo.kDeviceAction.TurnOff:
@@ -681,7 +719,6 @@ class Plugin(indigo.PluginBase):
 		###### SET BRIGHTNESS ######
 		elif action.deviceAction == indigo.kDeviceAction.SetBrightness:
 			# Command hardware module (dev) to set brightness here:
-			
 			self.rampChannel(dev, "set brightness", self.valueFromIndigo(action.actionValue))
 
 		###### BRIGHTEN BY ######

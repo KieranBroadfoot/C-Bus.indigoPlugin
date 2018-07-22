@@ -82,7 +82,7 @@
 		</States>
 	</Device>
 	
-	<Device type="custom" id="cbusSecurityZone">
+	<Device type="sensor" id="cbusSecurityZone">
 		<Name>C-Bus Enabled Alarm Zone</Name>
 		<UiDisplayStateId>state</UiDisplayStateId>
 		<States>
