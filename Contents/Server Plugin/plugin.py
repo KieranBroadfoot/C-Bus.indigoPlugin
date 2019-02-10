@@ -369,7 +369,7 @@ class Plugin(indigo.PluginBase):
 			level_split = result.split("=")
 			if len(level_split) > 1:
 				keyValueList = []
-				keyValueList.append({'key':'sensorValue', 'value':int(level_split[1])})
+				keyValueList.append({'key':'sensorValue', 'value':int(level_split[-1])})
 				dev.updateStatesOnServer(keyValueList)
 			else:
 				self.logger.error(dev.address+" does not appear to be a Light Sensor")
